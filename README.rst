@@ -1,4 +1,34 @@
-macroutils
+macroutils2
+===========
+* Changes from the original macroutils:
+  - replace the implicit Lit converters with explicit toLit procs
+    - Thue issue: implicit convertion is not easy to debug
+    - discussions : https://github.com/PMunch/macroutils/issues/5
+
+    - Before:
+      - You can't rely on implicit convertions to convert the types
+    .. code-block:: nim
+        testTableConst.arguments.insert(0, ExprColonExpr("hello", 32))
+    
+    - After:
+      - Instead, you need do this
+    .. code-block:: nim
+        testTableConst.muArguments.insert(0, ExprColonExpr("hello", toLit(32)))
+
+  - rename NimNode attribute getter and setter wiht "mu" prefix
+    - issue: Nim may introduce new macro/template that share the same attribute name with what's defined in macroutils
+    - discussions : https://github.com/PMunch/macroutils/issues/1
+
+    - Before:
+    .. code-block:: nim
+        testTableConst.arguments.insert(0, ExprColonExpr("hello", 32))
+    
+    - After:
+    .. code-block:: nim
+        testTableConst.muArguments.insert(0, ExprColonExpr("hello", toLit(32)))
+
+---------------------------------------------
+[original macroutils](https://github.com/PMunch/macroutils)
 ===========
 This module is meant to supplement the `macros` module in the standard
 library. It adds bits and pieces that I've personally missed while writing

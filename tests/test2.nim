@@ -1,6 +1,7 @@
 import unittest
-import macroutils
+import macroutils2
 import macros except name
+# import macros
 
 test "extract: syntax pleaser":
   macro test(args: untyped): untyped =
