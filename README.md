@@ -21,6 +21,10 @@ testTableConst.arguments.insert(0, ExprColonExpr("hello", 32))
 ##   2) attribute getter/setter are like `muArguments`
 testTableConst.muArguments.insert(0, ExprColonExpr("hello", toLit(32)))
 ```
+#### Install
+```bash
+nimble install https://github.com/YesDrX/macroutils2.git
+```
 
 ---------------------------------------------
 ## [original macroutils](https://github.com/PMunch/macroutils)
