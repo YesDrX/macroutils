@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.0.1"
+version       = "1.2.1"
 author        = "Peter Munch-Ellingsen"
 description   = "A package that makes creating macros easier"
 license       = "MIT"
