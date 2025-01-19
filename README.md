@@ -1,35 +1,30 @@
-macroutils2
-===========
+## macroutils2
+---------------------------------------------
+
 * Changes from the original macroutils:
   - replace the implicit Lit converters with explicit toLit procs
     - Thue issue: implicit convertion is not easy to debug
     - discussions : https://github.com/PMunch/macroutils/issues/5
 
-    - Before:
-      - You can't rely on implicit convertions to convert the types
-    .. code-block:: nim
-        testTableConst.arguments.insert(0, ExprColonExpr("hello", 32))
-    
-    - After:
-      - Instead, you need do this
-    .. code-block:: nim
-        testTableConst.muArguments.insert(0, ExprColonExpr("hello", toLit(32)))
-
   - rename NimNode attribute getter and setter wiht "mu" prefix
     - issue: Nim may introduce new macro/template that share the same attribute name with what's defined in macroutils
     - discussions : https://github.com/PMunch/macroutils/issues/1
 
-    - Before:
-    .. code-block:: nim
-        testTableConst.arguments.insert(0, ExprColonExpr("hello", 32))
-    
-    - After:
-    .. code-block:: nim
-        testTableConst.muArguments.insert(0, ExprColonExpr("hello", toLit(32)))
+```nim
+## Before:
+##   1) implicit convertion;
+##   2) attribute getter/setter are like `arguments`
+testTableConst.arguments.insert(0, ExprColonExpr("hello", 32))
+
+## After:
+##   1) explicit convertion;
+##   2) attribute getter/setter are like `muArguments`
+testTableConst.muArguments.insert(0, ExprColonExpr("hello", toLit(32)))
+```
 
 ---------------------------------------------
-[original macroutils](https://github.com/PMunch/macroutils)
-===========
+## [original macroutils](https://github.com/PMunch/macroutils)
+
 This module is meant to supplement the `macros` module in the standard
 library. It adds bits and pieces that I've personally missed while writing
 macros over the years.
@@ -42,29 +37,30 @@ access the members of nodes more easily. With this module imported you can
 create all of the useful nodes simply by dropping `nnk` from their name. So
 instead of doing something like this:
 
-.. code-block:: nim
+```nim
 
   newStmtList(
     nnkCommand.newTree(
       newIdentNode("echo"),
       newLit("Hello world")))
+```
 
 You can do something like this:
 
-.. code-block:: nim
-
+```nim
   StmtList(
     Command(
       Ident "echo",
       Lit "Hello world"))
+```
 
 This just removes a lot of noise from creating trees like these. But the
 procedures here are also smarter than the regular `newTree`, and literals
 are automatically converted, so the above can also be written as:
 
-.. code-block:: nim
-
+```nim
   StmtList(Command("echo", "Hello world"))
+```
 
 The `Command` procedure here is aware that the first argument is often
 supposed to be an `nnkIdent`, so it will automatically convert that string
@@ -74,11 +70,11 @@ Another neat feature are the setters and getters for the properties of
 nodes. You might have come across code like this (if you haven't, consider
 yourself lucky):
 
-.. code-block:: nim
-
+```
   procImpls[0][6][2][1][1].add(
     nnkElse.newTree(
       nnkStmtList.newTree(nnkDiscardStmt.newTree(newEmptyNode()))))
+```
 
 This example is taken from my `protobuf` module and shows how the flat
 structure of NimNodes with just a list of children nodes can be really
@@ -86,10 +82,10 @@ confusing. If you look at the generator procedures we used above you can use
 the same names of the arguments there to access the nodes in those nodes. So
 the above can be written as:
 
-.. code-block:: nim
-
+```
   procImpls[0].body[2].body[1].branches.add(
     Else(StmtList(DiscardStmt(Empty()))))
+```
 
 As you can see it is now more obvious that we're accessing the branches of
 the second statement in the body which is the third child of the body of the
@@ -102,8 +98,7 @@ children that are offset in the node.
 This alone is a useful feature when working with macros. But this module
 also has some more convenience things.
 
-Traversing the tree
--------------------
+#### Traversing the tree
 
 Often times when writing macros you want to manipulate only certain nodes
 within the AST. Either to parse a DSL, or to modify passed in code. For this
@@ -121,9 +116,9 @@ that node with the result of applying `action` to it. Note that it goes down
 the tree first, then applies the `action` on the way up. An example that
 replaces all string literals with the word "goodbye" would look like this:
 
-.. code-block:: nim
-
+```nim
   ourTree.forNode(nnkStrLit, (x) => Lit"goodbye")
+```
 
 A version of `forNode` named `forNodePos` also exists. It takes an `action`
 with two arguments, the node that matched and a sequence of indices into the
@@ -135,8 +130,7 @@ either a kind, a set of kinds, or a node along with a node to be inserted
 and replaces every node in the tree that has the same kind, is in the set of
 kinds, or is the same as the node with that node.
 
-Verifying DSL trees
--------------------
+#### Verifying DSL trees
 
 When writing DSLs it's also interesting to check if your tree is the same as
 the structure you wanted. This can be done by a lot of asserts and if and
@@ -147,13 +141,13 @@ depth as well. Combine this with `forNode` and you can pretty much check any
 passed in tree fairly easily. An example of what a `sameTree` check would
 look like:
 
-.. code-block:: nim
-
+```nim
   ourTree.sameTree(quote do:
     echo "A string"
     if something:
       echo 100
   )
+```
 
 This would return true iff `ourTree` was a tree that contained one call that
 took a `string`, and an if statement on a single `ident`, with a similar
@@ -162,8 +156,7 @@ wouldn't have to be a call to `echo`, merely a call to any `ident`. If you
 wanted to verify that the two `echo` statements where actually the same you
 could use `forNode` or `forNodePos` to implement that.
 
-Building trees
---------------
+#### Building trees
 
 One of the most welcome additions to the `macros` module has been the
 `quote` macro. It is able to take a tree and interpolate symbols from your
@@ -174,8 +167,7 @@ allows you to put anything in the quotes, and rewrites it to a normal
 `quote` statement that declares these as let statements. With this you can
 do things like:
 
-.. code-block:: nim
-
+```
   macro testSuperQuote(input: untyped): untyped =
     let x = [newLit(100), newLit(200)]
     result = superQuote do:
@@ -187,9 +179,9 @@ do things like:
 
   testSuperQuote:
     proc someproc()
+```
 
-Extracting nodes from a tree
-----------------------------
+#### Extracting nodes from a tree
 
 Creating trees is all well and good, and with `forNode` and the accessors
 it's easy to get things from the tree. But to take things one step further
@@ -199,8 +191,7 @@ can also postfix your arguments with `*` to collect them into a sequence of
 nodes. If the identifier exists it will assign or add to it, otherwise it
 will simply create them. With this you can do something like:
 
-.. code-block:: nim
-
+```nim
   macro testExtract(input: untyped): untyped =
     var arguments = newSeq[NimNode](1) # Create space for body
     input.extract do:
@@ -216,7 +207,4 @@ will simply create them. With this you can do something like:
       echo "Hello world"
       echo "Hello"
     let x: seq[int]
-
-
-This file is automatically generated from the documentation found in
-macroutils.nim. Use ``nim doc src/macroutils.nim`` to get the full documentation.
+```
