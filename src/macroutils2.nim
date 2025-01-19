@@ -24,7 +24,7 @@
 ##   StmtList(
 ##     Command(
 ##       Ident "echo",
-##       Lit "Hello world"))
+##       toLit "Hello world"))
 ##
 ## This just removes a lot of noise from creating trees like these. But the
 ## procedures here are also smarter than the regular `newTree`, and literals
@@ -187,7 +187,7 @@
 ##
 
 
-import macros, tables, options, sequtils
+import macros, tables, options, sequtils, strutils
 
 
 const
@@ -235,13 +235,13 @@ template len*(s: Slice): untyped =
   ## Get length of NimNode slice
   s.length
 
-#proc `$`*(s: Slice): string =
-#  result = "["
-#  for i in 0..<s.length:
-#    result.add s.node[s.offset + i].repr
-#    if i != s.length - 1:
-#      result.add ", "
-#  result.add "]"
+proc repr*(s: Slice): string =
+ result = "["
+ for i in 0..<s.length:
+   result.add s.node[s.offset + i].repr
+   if i != s.length - 1:
+     result.add ", "
+ result.add "]"
 
 macro massert(x, msg, node: untyped): untyped =
   quote do:
@@ -392,14 +392,16 @@ macro generate(nodes: untyped, extraFields: untyped): untyped =
       setterNameNode = newIdentNode(field & "=")
       x = newIdentNode("x")
       val = newIdentNode(field)
+      getterTemplateName = newIdentNode("mu" & field[0].toUpperAscii & field[1..^1])
+      setterTemplateName = newIdentNode("mu" & field[0].toUpperAscii & field[1..^1] & "=")
     var getter = quote do:
-      template `nameNode`*(`x`: NimNode): untyped =
+      template `getterTemplateName`*(`x`: NimNode): untyped =
         case `x`.kind:
         else:
           raise newException(ValueError, "Unable to get " & `field` &
             " for NimNode of kind " & $`x`.kind)
     var setter = quote do:
-      template `setterNameNode`*(`x`: NimNode, `val`: untyped): untyped =
+      template `setterTemplateName`*(`x`: NimNode, `val`: untyped): untyped =
         const `isInitialiser` {.used.} = false
         template result(): untyped {.used.} = `x`
         case `x`.kind:
@@ -421,7 +423,7 @@ macro generate(nodes: untyped, extraFields: untyped): untyped =
           setterBranch.add node.node[2]
         else:
           setterBranch.add quote do:
-            `x`[`indices`] = `val`
+            `x`[`indices`] = toLit(`val`)
       of nnkInfix:
         case $indices[0]:
         of "..", "..<", "..^":
@@ -452,14 +454,33 @@ macro generate(nodes: untyped, extraFields: untyped): untyped =
       else: discard
       getter[6][0].insert getter[6][0].len - 1, getterBranch
       setter[6][2].insert setter[6][2].len - 1, setterBranch
+    
     for extra in extraFields:
       massert(extra.kind == nnkCall, extra)
       massert(extra.len == 2, extra)
       massert(extra[0].kind == nnkIdent, extra[0])
       massert(extra[1].kind == nnkIdent, extra[1])
       if extra[1].strVal == field:
-        getter[6][0].insert getter[6][0].len - 1, nnkOfBranch.newTree(newIdentNode("nnk" & extra[0].strVal), nnkCall.newTree(newIdentNode("newLit"), nnkDotExpr.newTree(x, newIdentNode("strVal"))))
-        setter[6][2].insert setter[6][2].len - 1, nnkOfBranch.newTree(newIdentNode("nnk" & extra[0].strVal), nnkAsgn.newTree(nnkDotExpr.newTree(x, newIdentNode("strVal")), nameNode))
+        getter[6][0].insert(
+          getter[6][0].len - 1,
+          nnkOfBranch.newTree(
+            newIdentNode("nnk" & extra[0].strVal),
+            nnkCall.newTree(
+              newIdentNode("newLit"),
+              nnkDotExpr.newTree(x, newIdentNode("strVal"))
+            )
+          )
+        )
+        setter[6][2].insert(
+          setter[6][2].len - 1,
+          nnkOfBranch.newTree(
+            newIdentNode("nnk" & extra[0].strVal),
+            nnkAsgn.newTree(
+              nnkDotExpr.newTree(x, newIdentNode("strVal")),
+              nameNode
+            )
+          )
+        )
     result.add getter
     result.add setter
   varargsCase.add nnkElse.newTree(
@@ -467,26 +488,38 @@ macro generate(nodes: untyped, extraFields: untyped): untyped =
   result.add quote do:
     proc getVarargs(`varargsNode`: NimNode): Option[`varargsTuple`] =
       `varargsCase`
-  #echo result.repr
-
+  echo result.repr
 
 macro createLitConverters(list: varargs[untyped]): untyped =
   result = newStmtList()
   let x = newIdentNode("x")
   for kind in list:
     result.add quote do:
-      converter Lit*(`x`: `kind`): NimNode = newLit(`x`)
+      proc toLit*(`x`: `kind`): NimNode = newLit(`x`)
 
 createLitConverters(char, int, int8, int16, int32, int64, uint, uint8, uint16,
                     uint32, uint64, bool, string, float32, float64)
 
-#proc newLit*(x: NimNode): NimNode =
-#  assert(x.kind in nnkLiterals, "Node of kind " & $x.kind & " is not a Literal")
-#  x
+## Original Macroutils created a list of converters like below, and Lit could be conflicting with the system one
+# proc newLit*(x: NimNode): NimNode =
+#   assert(x.kind in nnkLiterals, "Node of kind " & $x.kind & " is not a Literal")
+#   x
 
 #converter Lit*[N, T](x: array[N, T]): NimNode = newLit(`x`)
 #converter Lit*[T](x: seq[T]): NimNode = newLit(`x`)
 #converter Lit*[T](x: set[T]): NimNode = newLit(`x`)
+
+## Instead of implicit converters, we use explicit converting procs like below:
+# proc toLit(x: char): NimNode =
+#   result = newLit(x)
+
+# proc toLit(x: int): NimNode =
+#   result = newLit(x)
+
+# proc toLit(x: int8): NimNode =
+#   result = newLit(x)
+
+# ...
 
 proc asIdent(name: string | NimNode): NimNode =
   when name is NimNode:
@@ -1255,7 +1288,7 @@ macro extract*(ast, pattern: untyped): untyped =
       parentNode = pattern
     for i, n in y.pos:
       if i != y.pos.high:
-        stmt = BracketExpr(stmt, Lit n)
+        stmt = BracketExpr(stmt, toLit n)
         parentNode = parentNode[n]
     if $parentNode[y.pos[^1]][^1] == "*":
       let varargPos = parentNode.getVarargs()
@@ -1266,8 +1299,8 @@ macro extract*(ast, pattern: untyped): untyped =
         "Recurring pattern in wrong part of node",
         parentNode[y.pos[^1]])
       let
-        start = Lit varargPos.get().start
-        stop = Lit varargPos.get().stop
+        start = toLit varargPos.get().start
+        stop = toLit varargPos.get().stop
       if y.node.kind == nnkIdent:
         # Yes this AST is dumb, but a combined statement doesn't work..
         result.add superQuote do:
@@ -1280,7 +1313,7 @@ macro extract*(ast, pattern: untyped): untyped =
         for i in `start`.. `stmt`.len - `stop`:
           `y.node`.add `stmt`[i]
     else:
-      stmt = BracketExpr(stmt, Lit y.pos[^1])
+      stmt = BracketExpr(stmt, toLit y.pos[^1])
       if y.node.kind == nnkIdent:
         # Yes this AST is dumb, but a combined statement doesn't work..
         result.add superQuote do:
