@@ -74,7 +74,7 @@ Another neat feature are the setters and getters for the properties of
 nodes. You might have come across code like this (if you haven't, consider
 yourself lucky):
 
-```
+```nim
   procImpls[0][6][2][1][1].add(
     nnkElse.newTree(
       nnkStmtList.newTree(nnkDiscardStmt.newTree(newEmptyNode()))))
@@ -86,7 +86,7 @@ confusing. If you look at the generator procedures we used above you can use
 the same names of the arguments there to access the nodes in those nodes. So
 the above can be written as:
 
-```
+```nim
   procImpls[0].body[2].body[1].branches.add(
     Else(StmtList(DiscardStmt(Empty()))))
 ```
@@ -171,7 +171,7 @@ allows you to put anything in the quotes, and rewrites it to a normal
 `quote` statement that declares these as let statements. With this you can
 do things like:
 
-```
+```nim
   macro testSuperQuote(input: untyped): untyped =
     let x = [newLit(100), newLit(200)]
     result = superQuote do:
